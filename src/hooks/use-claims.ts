@@ -1,144 +1,224 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Claim, ClaimStatus } from '@/types/claim';
+import { Claim, ClaimStatus, TimelineEvent } from '@/types/claim';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-
-const STORAGE_KEY = 'sinistro_facil_claims';
 
 export function useClaims() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setClaims(JSON.parse(stored));
-    } else {
-      // Mock initial data
-      const mockClaims: Claim[] = [
-        {
-          id: 'SIN-2024-001',
-          insuredName: 'João Silva',
-          cpfCnpj: '123.456.789-00',
-          policyNumber: 'POL-987654',
-          insuranceCompany: 'Porto Seguro',
-          email: 'joao.silva@email.com',
-          phone: '(11) 98888-7777',
-          type: 'Automóvel',
-          date: '2024-06-15',
-          time: '14:30',
-          location: 'Av. Paulista, 1000 - São Paulo, SP',
-          description: 'Colisão traseira no semáforo.',
-          status: 'Em Análise',
-          attachments: [],
-          timeline: [
-            {
-              id: '1',
-              date: '2024-06-15',
-              time: '14:45',
-              description: 'Sinistro aberto pelo segurado.',
-              status: 'Aberto'
-            },
-            {
-              id: '2',
-              date: '2024-06-16',
-              time: '09:00',
-              description: 'Documentação recebida e em análise.',
-              status: 'Em Análise'
-            }
-          ],
-          vehicle: {
-            plate: 'ABC-1234',
-            brand: 'Toyota',
-            model: 'Corolla',
-            year: '2022',
-            color: 'Prata'
-          },
-          workshop: {
-            name: 'Oficina dos Amigos Ltda',
-            cnpj: '12.345.678/0001-90',
-            phone: '(11) 3333-3333',
-            address: 'Rua das Oficinas, 456 - São Paulo, SP'
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      setClaims(mockClaims);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockClaims));
-    }
-    setLoading(false);
+    fetchClaims();
   }, []);
 
-  const saveClaim = (claim: Claim) => {
-    const updatedClaims = [...claims];
-    const index = updatedClaims.findIndex(c => c.id === claim.id);
-    
-    if (index >= 0) {
-      updatedClaims[index] = { ...claim, updatedAt: new Date().toISOString() };
-      toast.success('Sinistro atualizado com sucesso!');
-    } else {
-      updatedClaims.push({ ...claim, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-      toast.success('Sinistro aberto com sucesso!');
+  const fetchClaims = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('claims')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const claimsWithTimeline = await Promise.all(
+        (data || []).map(async (claim) => {
+          const { data: timeline } = await supabase
+            .from('claim_timeline')
+            .select('*')
+            .eq('claim_id', claim.id)
+            .order('event_date', { ascending: false });
+
+          return {
+            id: claim.id,
+            insuredName: claim.insured_name,
+            cpfCnpj: claim.cpf_cnpj,
+            policyNumber: claim.policy_number,
+            insuranceCompany: claim.insurance_company,
+            email: claim.email,
+            phone: claim.phone,
+            type: claim.type,
+            date: claim.incident_date,
+            time: claim.incident_time,
+            location: claim.location,
+            description: claim.description,
+            status: claim.status,
+            vehicle: claim.vehicle_plate ? {
+              plate: claim.vehicle_plate,
+              brand: claim.vehicle_brand,
+              model: claim.vehicle_model,
+              year: claim.vehicle_year,
+              color: claim.vehicle_color
+            } : undefined,
+            workshop: claim.workshop_name ? {
+              name: claim.workshop_name,
+              cnpj: claim.workshop_cnpj,
+              phone: claim.workshop_phone,
+              address: claim.workshop_address
+            } : undefined,
+            timeline: (timeline || []).map(t => ({
+              id: t.id,
+              date: t.event_date,
+              time: t.event_time,
+              description: t.description,
+              status: t.status
+            })),
+            attachments: [],
+            createdAt: claim.created_at,
+            updatedAt: claim.updated_at
+          };
+        })
+      );
+
+      setClaims(claimsWithTimeline);
+    } catch (error) {
+      console.error('Erro ao buscar sinistros:', error);
+      toast.error('Erro ao carregar sinistros');
+    } finally {
+      setLoading(false);
     }
-    
-    setClaims(updatedClaims);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClaims));
   };
 
-  const deleteClaim = (id: string) => {
-    const updatedClaims = claims.filter(c => c.id !== id);
-    setClaims(updatedClaims);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClaims));
-    toast.success('Sinistro removido.');
+  const saveClaim = async (claim: Claim) => {
+    try {
+      const claimData = {
+        insured_name: claim.insuredName,
+        cpf_cnpj: claim.cpfCnpj,
+        policy_number: claim.policyNumber,
+        insurance_company: claim.insuranceCompany,
+        email: claim.email,
+        phone: claim.phone,
+        type: claim.type,
+        incident_date: claim.date,
+        incident_time: claim.time,
+        location: claim.location,
+        description: claim.description,
+        status: claim.status,
+        vehicle_plate: claim.vehicle?.plate,
+        vehicle_brand: claim.vehicle?.brand,
+        vehicle_model: claim.vehicle?.model,
+        vehicle_year: claim.vehicle?.year,
+        vehicle_color: claim.vehicle?.color,
+        workshop_name: claim.workshop?.name,
+        workshop_cnpj: claim.workshop?.cnpj,
+        workshop_phone: claim.workshop?.phone,
+        workshop_address: claim.workshop?.address
+      };
+
+      if (claim.id && claims.find(c => c.id === claim.id)) {
+        // Atualizar sinistro existente
+        const { error } = await supabase
+          .from('claims')
+          .update(claimData)
+          .eq('id', claim.id);
+
+        if (error) throw error;
+        toast.success('Sinistro atualizado com sucesso!');
+      } else {
+        // Criar novo sinistro
+        const { data, error } = await supabase
+          .from('claims')
+          .insert(claimData)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Adicionar evento na timeline
+        if (data) {
+          await supabase.from('claim_timeline').insert({
+            claim_id: data.id,
+            event_date: new Date().toISOString().split('T')[0],
+            event_time: new Date().toTimeString().split(' ')[0],
+            description: 'Sinistro aberto pelo segurado.',
+            status: 'Aberto'
+          });
+        }
+
+        toast.success('Sinistro aberto com sucesso!');
+      }
+
+      await fetchClaims();
+    } catch (error) {
+      console.error('Erro ao salvar sinistro:', error);
+      toast.error('Erro ao salvar sinistro');
+    }
+  };
+
+  const deleteClaim = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('claims')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setClaims(prev => prev.filter(c => c.id !== id));
+      toast.success('Sinistro removido.');
+    } catch (error) {
+      console.error('Erro ao deletar sinistro:', error);
+      toast.error('Erro ao remover sinistro');
+    }
   };
 
   const getClaim = (id: string) => {
     return claims.find(c => c.id === id);
   };
 
-  const updateStatus = (id: string, status: ClaimStatus, description: string) => {
-    const claim = claims.find(c => c.id === id);
-    if (claim) {
-      const newEvent = {
-        id: Math.random().toString(36).substr(2, 9),
-        date: new Date().toLocaleDateString('pt-BR'),
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        description,
-        status
-      };
-      
-      const updatedClaim = {
-        ...claim,
-        status,
-        timeline: [newEvent, ...claim.timeline],
-        updatedAt: new Date().toISOString()
-      };
-      
-      saveClaim(updatedClaim);
+  const updateStatus = async (id: string, status: ClaimStatus, description: string) => {
+    try {
+      const claim = claims.find(c => c.id === id);
+      if (!claim) return;
+
+      // Atualizar status do sinistro
+      const { error: updateError } = await supabase
+        .from('claims')
+        .update({ status })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // Adicionar evento na timeline
+      const { error: timelineError } = await supabase
+        .from('claim_timeline')
+        .insert({
+          claim_id: id,
+          event_date: new Date().toISOString().split('T')[0],
+          event_time: new Date().toTimeString().split(' ')[0],
+          description,
+          status
+        });
+
+      if (timelineError) throw timelineError;
+
       toast.info(`Status atualizado para: ${status}`);
+      await fetchClaims();
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      toast.error('Erro ao atualizar status');
     }
   };
 
-  const addTimelineEvent = (id: string, description: string, status: ClaimStatus) => {
-    const claim = claims.find(c => c.id === id);
-    if (claim) {
-      const newEvent = {
-        id: Math.random().toString(36).substr(2, 9),
-        date: new Date().toLocaleDateString('pt-BR'),
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        description,
-        status
-      };
+  const addTimelineEvent = async (id: string, description: string, status: ClaimStatus) => {
+    try {
+      const { error } = await supabase
+        .from('claim_timeline')
+        .insert({
+          claim_id: id,
+          event_date: new Date().toISOString().split('T')[0],
+          event_time: new Date().toTimeString().split(' ')[0],
+          description,
+          status
+        });
 
-      const updatedClaim = {
-        ...claim,
-        timeline: [newEvent, ...claim.timeline],
-        updatedAt: new Date().toISOString()
-      };
+      if (error) throw error;
 
-      saveClaim(updatedClaim);
+      await fetchClaims();
+    } catch (error) {
+      console.error('Erro ao adicionar evento:', error);
+      toast.error('Erro ao adicionar evento');
     }
   };
 
