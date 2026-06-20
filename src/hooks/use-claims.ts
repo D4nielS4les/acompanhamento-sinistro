@@ -95,51 +95,49 @@ export function useClaims() {
         location: claim.location,
         description: claim.description,
         status: claim.status,
-        vehicle_plate: claim.vehicle?.plate,
-        vehicle_brand: claim.vehicle?.brand,
-        vehicle_model: claim.vehicle?.model,
-        vehicle_year: claim.vehicle?.year,
-        vehicle_color: claim.vehicle?.color,
-        workshop_name: claim.workshop?.name,
-        workshop_cnpj: claim.workshop?.cnpj,
-        workshop_phone: claim.workshop?.phone,
-        workshop_address: claim.workshop?.address
+        vehicle_plate: claim.vehicle?.plate || null,
+        vehicle_brand: claim.vehicle?.brand || null,
+        vehicle_model: claim.vehicle?.model || null,
+        vehicle_year: claim.vehicle?.year || null,
+        vehicle_color: claim.vehicle?.color || null,
+        workshop_name: claim.workshop?.name || null,
+        workshop_cnpj: claim.workshop?.cnpj || null,
+        workshop_phone: claim.workshop?.phone || null,
+        workshop_address: claim.workshop?.address || null
       };
 
-      if (claim.id && claims.find(c => c.id === claim.id)) {
-        // Atualizar sinistro existente
-        const { error } = await supabase
-          .from('claims')
-          .update(claimData)
-          .eq('id', claim.id);
+      console.log('Salvando sinistro:', claimData);
 
-        if (error) throw error;
-        toast.success('Sinistro atualizado com sucesso!');
-      } else {
-        // Criar novo sinistro
-        const { data, error } = await supabase
-          .from('claims')
-          .insert(claimData)
-          .select()
-          .single();
+      // Criar novo sinistro (banco gera UUID automaticamente)
+      const { data, error } = await supabase
+        .from('claims')
+        .insert(claimData)
+        .select()
+        .single();
 
-        if (error) throw error;
-
-        // Adicionar evento na timeline
-        if (data) {
-          await supabase.from('claim_timeline').insert({
-            claim_id: data.id,
-            event_date: new Date().toISOString().split('T')[0],
-            event_time: new Date().toTimeString().split(' ')[0],
-            description: 'Sinistro aberto pelo segurado.',
-            status: 'Aberto'
-          });
-        }
-
-        toast.success('Sinistro aberto com sucesso!');
+      if (error) {
+        console.error('Erro Supabase:', error);
+        throw error;
       }
 
-      await fetchClaims();
+      console.log('Sinistro criado:', data);
+
+      // Adicionar evento na timeline
+      if (data) {
+        const timelineResult = await supabase.from('claim_timeline').insert({
+          claim_id: data.id,
+          event_date: new Date().toISOString().split('T')[0],
+          event_time: new Date().toTimeString().split(' ')[0],
+          description: 'Sinistro aberto pelo segurado.',
+          status: 'Aberto'
+        });
+        
+        if (timelineResult.error) {
+          console.error('Erro timeline:', timelineResult.error);
+        }
+      }
+
+      toast.success('Sinistro aberto com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar sinistro:', error);
       toast.error('Erro ao salvar sinistro');
