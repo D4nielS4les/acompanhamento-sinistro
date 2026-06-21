@@ -73,7 +73,7 @@ export function Header() {
                 placeholder="Buscar sinistros..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-64 pl-10 pr-8 h-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+                className="w-64 pl-10 pr-8 h-9 bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/50"
               />
               {search && (
                 <button
