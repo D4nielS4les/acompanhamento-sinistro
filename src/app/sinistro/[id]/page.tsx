@@ -111,11 +111,11 @@ export default function ClaimDetail() {
             </Button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight">{claim.vehicle?.plate || claim.id}</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{claim.vehicle?.plate || claim.insuredName}</h1>
                 <StatusBadge status={claim.status} />
               </div>
               <p className="text-muted-foreground text-sm mt-1">
-                {claim.id} • {claim.type} • Aberto em {new Date(claim.createdAt).toLocaleDateString('pt-BR')}
+                {claim.type} • Aberto em {new Date(claim.createdAt).toLocaleDateString('pt-BR')}
               </p>
             </div>
           </div>
