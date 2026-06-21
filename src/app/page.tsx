@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useClaims } from "@/hooks/use-claims";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Claim } from "@/types/claim";
 
@@ -45,6 +45,8 @@ const stats = [
 export default function Dashboard() {
   const { claims, loading, deleteClaim, saveClaim } = useClaims();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const search = searchParams.get("search") || "";
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
@@ -54,6 +56,19 @@ export default function Dashboard() {
     phone: "",
     location: "",
   });
+
+  const filteredClaims = useMemo(() => {
+    if (!search) return claims;
+    const term = search.toLowerCase();
+    return claims.filter(
+      (c) =>
+        c.insuredName.toLowerCase().includes(term) ||
+        c.vehicle?.plate?.toLowerCase().includes(term) ||
+        c.insuranceCompany.toLowerCase().includes(term) ||
+        c.location?.toLowerCase().includes(term) ||
+        c.description?.toLowerCase().includes(term)
+    );
+  }, [claims, search]);
 
   if (loading) {
     return (
@@ -70,10 +85,10 @@ export default function Dashboard() {
   }
 
   const updateStats = () => {
-    const total = claims.length;
-    const emAnalise = claims.filter(c => c.status === "Em Análise").length;
-    const aprovados = claims.filter(c => c.status === "Aprovado" || c.status === "Pago/Encerrado").length;
-    const pendentes = claims.filter(c => c.status === "Aberto" || c.status === "Documentação Pendente").length;
+    const total = filteredClaims.length;
+    const emAnalise = filteredClaims.filter(c => c.status === "Em Análise").length;
+    const aprovados = filteredClaims.filter(c => c.status === "Aprovado" || c.status === "Pago/Encerrado").length;
+    const pendentes = filteredClaims.filter(c => c.status === "Aberto" || c.status === "Documentação Pendente").length;
     
     return [
       { ...stats[0], value: total.toString() },
@@ -197,7 +212,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {claims.length === 0 ? (
+        {filteredClaims.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="relative mb-6">
@@ -206,21 +221,25 @@ export default function Dashboard() {
                   <ShieldAlert className="h-12 w-12 text-muted-foreground" />
                 </div>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Nenhum sinistro encontrado</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                {search ? "Nenhum sinistro encontrado para a busca" : "Nenhum sinistro encontrado"}
+              </h3>
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-sm">
-                Você ainda não possui sinistros registrados. Comece abrindo seu primeiro sinistro agora mesmo.
+                {search ? "Tente buscar com outros termos." : "Você ainda não possui sinistros registrados. Comece abrindo seu primeiro sinistro agora mesmo."}
               </p>
-              <Button asChild size="lg">
-                <Link href="/novo" className="gap-2">
-                  <PlusCircle className="h-5 w-5" />
-                  Abrir Primeiro Sinistro
-                </Link>
-              </Button>
+              {!search && (
+                <Button asChild size="lg">
+                  <Link href="/novo" className="gap-2">
+                    <PlusCircle className="h-5 w-5" />
+                    Abrir Primeiro Sinistro
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {claims.map((claim, index) => (
+            {filteredClaims.map((claim, index) => (
               <motion.div
                 key={claim.id}
                 initial={{ opacity: 0, y: 20 }}

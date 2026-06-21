@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, LayoutDashboard, PlusCircle, Bell, Search } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, PlusCircle, Bell, Search, X } from "lucide-react";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -15,6 +16,19 @@ const navItems = [
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (search) {
+      params.set("search", search);
+    } else {
+      params.delete("search");
+    }
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [search]);
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-card/80 border-b border-border/50">
@@ -57,8 +71,18 @@ export function Header() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Buscar sinistros..." 
-                className="w-64 pl-10 h-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-64 pl-10 pr-8 h-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
           
