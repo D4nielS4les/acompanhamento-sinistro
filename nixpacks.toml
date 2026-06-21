@@ -1,3 +1,0 @@
-[phases.setup]
-nodejs = "20.9.0"
-npm = "11"
