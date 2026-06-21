@@ -164,7 +164,7 @@ export default function AllClaims() {
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/30">
                       <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-4">
-                        Placa / ID
+                        Placa
                       </th>
                       <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-4">
                         Segurado
@@ -203,9 +203,8 @@ export default function AllClaims() {
                         <td className="px-6 py-4">
                           <div>
                             <p className="text-sm font-bold text-primary font-mono">
-                              {claim.vehicle?.plate || claim.id}
+                              {claim.vehicle?.plate || claim.insuredName}
                             </p>
-                            <p className="text-xs text-muted-foreground">{claim.id}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4">
