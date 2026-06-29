@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useClaims } from "@/hooks/use-claims";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,9 @@ const stats = [
 export default function Dashboard() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <Suspense fallback={<div className="flex items-center justify-center h-[60vh]"><p>Carregando...</p></div>}>
+        <DashboardContent />
+      </Suspense>
     </ProtectedRoute>
   );
 }
