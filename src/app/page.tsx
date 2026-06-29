@@ -34,6 +34,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Claim } from "@/types/claim";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { RevealData } from "@/components/ui/reveal-data";
 
 const stats = [
   { label: "Total de Sinistros", value: "0", icon: BarChart3, color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -43,6 +45,14 @@ const stats = [
 ];
 
 export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
+  );
+}
+
+function DashboardContent() {
   const { claims, loading, deleteClaim, saveClaim } = useClaims();
   const router = useRouter();
   const searchParams = useSearchParams();

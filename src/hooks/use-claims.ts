@@ -106,8 +106,6 @@ export function useClaims() {
         workshop_address: claim.workshop?.address || null
       };
 
-      console.log('Salvando sinistro:', claimData);
-
       // Criar novo sinistro (banco gera UUID automaticamente)
       const { data, error } = await supabase
         .from('claims')
@@ -115,26 +113,17 @@ export function useClaims() {
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro Supabase:', error);
-        throw error;
-      }
-
-      console.log('Sinistro criado:', data);
+      if (error) throw error;
 
       // Adicionar evento na timeline
       if (data) {
-        const timelineResult = await supabase.from('claim_timeline').insert({
+        await supabase.from('claim_timeline').insert({
           claim_id: data.id,
           event_date: new Date().toISOString().split('T')[0],
           event_time: new Date().toTimeString().split(' ')[0],
           description: 'Sinistro aberto pelo segurado.',
           status: 'Aberto'
         });
-        
-        if (timelineResult.error) {
-          console.error('Erro timeline:', timelineResult.error);
-        }
       }
 
       toast.success('Sinistro aberto com sucesso!');

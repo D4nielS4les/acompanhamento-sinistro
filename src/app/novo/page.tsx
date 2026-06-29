@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 const NewClaimForm = dynamic(() => import("./new-claim-form"), {
   ssr: false,
@@ -15,5 +16,9 @@ const NewClaimForm = dynamic(() => import("./new-claim-form"), {
 });
 
 export default function NewClaim() {
-  return <NewClaimForm />;
+  return (
+    <ProtectedRoute>
+      <NewClaimForm />
+    </ProtectedRoute>
+  );
 }

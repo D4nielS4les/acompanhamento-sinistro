@@ -91,7 +91,6 @@ export default function NewClaimForm() {
   const claimType = watch("type") || "";
 
   const onSubmit = async (data: ClaimFormData) => {
-    console.log("Form submitted:", data);
     try {
       const newClaim: Claim = {
         ...data,
@@ -120,8 +119,7 @@ export default function NewClaimForm() {
       await saveClaim(newClaim);
       toast.success("Sinistro aberto com sucesso!");
       router.push('/');
-    } catch (error) {
-      console.error("Error saving:", error);
+    } catch {
       toast.error("Erro ao salvar sinistro");
     }
   };

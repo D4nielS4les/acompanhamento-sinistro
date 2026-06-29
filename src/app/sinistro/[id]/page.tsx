@@ -45,8 +45,19 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ClaimStatus } from "@/types/claim";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { maskCPFDisplay, maskCNPJDisplay, maskEmailDisplay, maskPhoneDisplay } from "@/lib/masks";
+import { RevealData } from "@/components/ui/reveal-data";
 
 export default function ClaimDetail() {
+  return (
+    <ProtectedRoute>
+      <ClaimDetailContent />
+    </ProtectedRoute>
+  );
+}
+
+function ClaimDetailContent() {
   const { id } = useParams();
   const { getClaim, updateStatus, addTimelineEvent } = useClaims();
   const claim = getClaim(id as string);
@@ -308,7 +319,7 @@ export default function ClaimDetail() {
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">CPF / CNPJ</p>
-                  <p className="text-sm font-semibold font-mono">{claim.cpfCnpj}</p>
+                  <RevealData masked={maskCPFDisplay(claim.cpfCnpj)} full={claim.cpfCnpj} />
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Contato</p>
@@ -317,13 +328,13 @@ export default function ClaimDetail() {
                       <div className="bg-muted/50 p-2 rounded-lg">
                         <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <span className="text-muted-foreground">{claim.email}</span>
+                      <RevealData masked={maskEmailDisplay(claim.email)} full={claim.email} />
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <div className="bg-muted/50 p-2 rounded-lg">
                         <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <span className="text-muted-foreground">{claim.phone}</span>
+                      <RevealData masked={maskPhoneDisplay(claim.phone)} full={claim.phone} />
                     </div>
                   </div>
                 </div>
@@ -432,11 +443,11 @@ export default function ClaimDetail() {
                   </div>
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">CNPJ</p>
-                    <p className="text-sm font-mono">{claim.workshop.cnpj}</p>
+                    <RevealData masked={maskCNPJDisplay(claim.workshop.cnpj)} full={claim.workshop.cnpj} />
                   </div>
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Telefone</p>
-                    <p className="text-sm font-semibold">{claim.workshop.phone}</p>
+                    <RevealData masked={maskPhoneDisplay(claim.workshop.phone)} full={claim.workshop.phone} />
                   </div>
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Endereço</p>

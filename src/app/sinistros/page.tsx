@@ -18,6 +18,8 @@ import {
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ClaimStatus } from "@/types/claim";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { RevealData } from "@/components/ui/reveal-data";
 
 const statusFilters: ClaimStatus[] = [
   "Aberto",
@@ -29,6 +31,14 @@ const statusFilters: ClaimStatus[] = [
 ];
 
 export default function AllClaims() {
+  return (
+    <ProtectedRoute>
+      <AllClaimsContent />
+    </ProtectedRoute>
+  );
+}
+
+function AllClaimsContent() {
   const { claims, loading } = useClaims();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClaimStatus | "">("");
@@ -208,7 +218,14 @@ export default function AllClaims() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-medium">{claim.insuredName}</p>
+                          <p className="text-sm font-medium">
+                            <RevealData
+                              masked={claim.insuredName.length > 3
+                                ? claim.insuredName[0] + '*'.repeat(claim.insuredName.length - 2) + claim.insuredName[claim.insuredName.length - 1]
+                                : claim.insuredName}
+                              full={claim.insuredName}
+                            />
+                          </p>
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm text-muted-foreground">{claim.insuranceCompany}</p>
