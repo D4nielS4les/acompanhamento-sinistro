@@ -20,6 +20,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SinistroFacil | Acompanhamento de Sinistros",
   description: "Sistema moderno para gestão e acompanhamento de sinistros",
+  icons: {
+    icon: [
+      { url: "/favicons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+  },
+  other: {
+    "msapplication-TileColor": "#ffffff",
+    "theme-color": "#ffffff",
+  },
 };
 
 export default function RootLayout({
