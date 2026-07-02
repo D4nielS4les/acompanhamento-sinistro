@@ -195,6 +195,9 @@ function AllClaimsContent() {
                         Oficina
                       </th>
                       <th className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-4">
+                        RCFs
+                      </th>
+                      <th className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-4">
                         Docs
                       </th>
                       <th className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-4">
@@ -254,6 +257,11 @@ function AllClaimsContent() {
                               {claim.workshop?.name || "Não informada"}
                             </span>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${claim.rcfs.length > 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'text-muted-foreground'}`}>
+                            {claim.rcfs.length > 0 ? `${claim.rcfs.length} terceiro(s)` : '—'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">

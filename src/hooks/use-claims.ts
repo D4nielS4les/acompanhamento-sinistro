@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Claim, ClaimStatus, TimelineEvent } from '@/types/claim';
+import { Claim, ClaimStatus, TimelineEvent, RCF } from '@/types/claim';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -30,6 +30,12 @@ export function useClaims() {
             .eq('claim_id', claim.id)
             .order('event_date', { ascending: false });
 
+          const { data: rcfs } = await supabase
+            .from('rcf_third_parties')
+            .select('*')
+            .eq('claim_id', claim.id)
+            .order('created_at', { ascending: false });
+
           return {
             id: claim.id,
             insuredName: claim.insured_name,
@@ -38,6 +44,17 @@ export function useClaims() {
             insuranceCompany: claim.insurance_company,
             email: claim.email,
             phone: claim.phone,
+            franchiseValue: claim.franchise_value,
+            claimNumber: claim.claim_number,
+            rentalCarDays: claim.rental_car_days,
+            driverCoverage: claim.driver_coverage,
+            driverName: claim.driver_name || '',
+            driverCpf: claim.driver_cpf || '',
+            driverBirthDate: claim.driver_birth_date || '',
+            driverCnhNumber: claim.driver_cnh_number || '',
+            driverCnhCategory: claim.driver_cnh_category || '',
+            driverCnhExpiry: claim.driver_cnh_expiry || '',
+            driverRelationship: claim.driver_relationship || '',
             type: claim.type,
             date: claim.incident_date,
             time: claim.incident_time,
@@ -49,7 +66,9 @@ export function useClaims() {
               brand: claim.vehicle_brand,
               model: claim.vehicle_model,
               year: claim.vehicle_year,
-              color: claim.vehicle_color
+              color: claim.vehicle_color,
+              chassis: claim.vehicle_chassis || '',
+              renavam: claim.vehicle_renavam || ''
             } : undefined,
             workshop: claim.workshop_name ? {
               name: claim.workshop_name,
@@ -65,6 +84,26 @@ export function useClaims() {
               status: t.status
             })),
             attachments: [],
+            parentClaimId: claim.parent_claim_id || undefined,
+            rcfs: (rcfs || []).map(r => ({
+              id: r.id,
+              claimId: r.claim_id,
+              name: r.name,
+              cpf: r.cpf,
+              phone: r.phone,
+              email: r.email,
+              vehiclePlate: r.vehicle_plate,
+              vehicleBrand: r.vehicle_brand,
+              vehicleModel: r.vehicle_model,
+              vehicleYear: r.vehicle_year,
+              vehicleColor: r.vehicle_color,
+              vehicleChassis: r.vehicle_chassis || '',
+              vehicleRenavam: r.vehicle_renavam || '',
+              insuranceCompany: r.insurance_company,
+              sinistroNumber: r.sinistro_number,
+              workshopName: r.workshop_name || '',
+              createdAt: r.created_at
+            })),
             createdAt: claim.created_at,
             updatedAt: claim.updated_at
           };
@@ -81,71 +120,89 @@ export function useClaims() {
   };
 
   const saveClaim = async (claim: Claim) => {
-    try {
-      const claimData = {
-        insured_name: claim.insuredName,
-        cpf_cnpj: claim.cpfCnpj,
-        policy_number: claim.policyNumber,
-        insurance_company: claim.insuranceCompany,
-        email: claim.email,
-        phone: claim.phone,
-        type: claim.type,
-        incident_date: claim.date,
-        incident_time: claim.time,
-        location: claim.location,
-        description: claim.description,
-        status: claim.status,
-        vehicle_plate: claim.vehicle?.plate || null,
-        vehicle_brand: claim.vehicle?.brand || null,
-        vehicle_model: claim.vehicle?.model || null,
-        vehicle_year: claim.vehicle?.year || null,
-        vehicle_color: claim.vehicle?.color || null,
-        workshop_name: claim.workshop?.name || null,
-        workshop_cnpj: claim.workshop?.cnpj || null,
-        workshop_phone: claim.workshop?.phone || null,
-        workshop_address: claim.workshop?.address || null
+    const claimData = {
+      insured_name: claim.insuredName,
+      cpf_cnpj: claim.cpfCnpj,
+      policy_number: claim.policyNumber,
+      insurance_company: claim.insuranceCompany,
+      email: claim.email,
+      phone: claim.phone,
+      franchise_value: claim.franchiseValue,
+      claim_number: claim.claimNumber,
+      rental_car_days: claim.rentalCarDays,
+      driver_coverage: claim.driverCoverage,
+      driver_name: claim.driverName || null,
+      driver_cpf: claim.driverCpf || null,
+      driver_birth_date: claim.driverBirthDate || null,
+      driver_cnh_number: claim.driverCnhNumber || null,
+      driver_cnh_category: claim.driverCnhCategory || null,
+      driver_cnh_expiry: claim.driverCnhExpiry || null,
+      driver_relationship: claim.driverRelationship || null,
+      type: claim.type,
+      incident_date: claim.date,
+      incident_time: claim.time,
+      location: claim.location,
+      description: claim.description,
+      status: claim.status,
+      vehicle_plate: claim.vehicle?.plate || null,
+      vehicle_brand: claim.vehicle?.brand || null,
+      vehicle_model: claim.vehicle?.model || null,
+      vehicle_year: claim.vehicle?.year || null,
+      vehicle_color: claim.vehicle?.color || null,
+      vehicle_chassis: claim.vehicle?.chassis || null,
+      vehicle_renavam: claim.vehicle?.renavam || null,
+      workshop_name: claim.workshop?.name || null,
+      workshop_cnpj: claim.workshop?.cnpj || null,
+      workshop_phone: claim.workshop?.phone || null,
+        workshop_address: claim.workshop?.address || null,
+        parent_claim_id: claim.parentClaimId || null
       };
 
-      // Criar novo sinistro (banco gera UUID automaticamente)
-      const { data, error } = await supabase
-        .from('claims')
-        .insert(claimData)
-        .select()
-        .single();
+    // Criar novo sinistro (banco gera UUID automaticamente)
+    const { data, error } = await supabase
+      .from('claims')
+      .insert(claimData)
+      .select()
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Adicionar evento na timeline
-      if (data) {
-        await supabase.from('claim_timeline').insert({
-          claim_id: data.id,
-          event_date: new Date().toISOString().split('T')[0],
-          event_time: new Date().toTimeString().split(' ')[0],
-          description: 'Sinistro aberto pelo segurado.',
-          status: 'Aberto'
-        });
-      }
-
-      toast.success('Sinistro aberto com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar sinistro:', error);
-      toast.error('Erro ao salvar sinistro');
+    // Adicionar evento na timeline
+    if (data) {
+      await supabase.from('claim_timeline').insert({
+        claim_id: data.id,
+        event_date: new Date().toISOString().split('T')[0],
+        event_time: new Date().toTimeString().split(' ')[0],
+        description: 'Sinistro aberto pelo segurado.',
+        status: 'Aberto'
+      });
     }
+
+    await fetchClaims();
+    return data?.id || null;
   };
 
   const deleteClaim = async (id: string) => {
     try {
+      // Primeiro deletar timeline vinculada
+      await supabase.from('claim_timeline').delete().eq('claim_id', id);
+      // Depois deletar RCFs vinculados
+      await supabase.from('rcf_third_parties').delete().eq('claim_id', id);
+      // Por fim deletar o sinistro
       const { error } = await supabase
         .from('claims')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', JSON.stringify(error));
+        throw error;
+      }
 
       setClaims(prev => prev.filter(c => c.id !== id));
       toast.success('Sinistro removido.');
     } catch (error) {
-      console.error('Erro ao deletar sinistro:', error);
+      console.error('Erro ao deletar sinistro:', JSON.stringify(error));
       toast.error('Erro ao remover sinistro');
     }
   };
@@ -209,5 +266,58 @@ export function useClaims() {
     }
   };
 
-  return { claims, loading, saveClaim, deleteClaim, getClaim, updateStatus, addTimelineEvent };
+  const saveRCF = async (rcf: Omit<RCF, 'id' | 'createdAt'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('rcf_third_parties')
+        .insert({
+          claim_id: rcf.claimId,
+          name: rcf.name,
+          cpf: rcf.cpf,
+          phone: rcf.phone,
+          email: rcf.email,
+          vehicle_plate: rcf.vehiclePlate,
+          vehicle_brand: rcf.vehicleBrand,
+          vehicle_model: rcf.vehicleModel,
+          vehicle_year: rcf.vehicleYear,
+          vehicle_color: rcf.vehicleColor,
+          vehicle_chassis: rcf.vehicleChassis,
+          vehicle_renavam: rcf.vehicleRenavam,
+          insurance_company: rcf.insuranceCompany,
+          sinistro_number: rcf.sinistroNumber,
+          workshop_name: rcf.workshopName || null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchClaims();
+      toast.success('Terceiro cadastrado com sucesso!');
+      return data;
+    } catch (error) {
+      console.error('Erro ao salvar RCF:', error);
+      toast.error('Erro ao cadastrar terceiro');
+      return null;
+    }
+  };
+
+  const deleteRCF = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('rcf_third_parties')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await fetchClaims();
+      toast.success('Terceiro removido.');
+    } catch (error) {
+      console.error('Erro ao deletar RCF:', error);
+      toast.error('Erro ao remover terceiro');
+    }
+  };
+
+  return { claims, loading, saveClaim, deleteClaim, getClaim, updateStatus, addTimelineEvent, saveRCF, deleteRCF };
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,6 +26,10 @@ const claimSchema = z.object({
   insuranceCompany: z.string().min(1, "Seguradora é obrigatória"),
   email: z.string().email("E-mail inválido"),
   phone: z.string().min(10, "Telefone inválido"),
+  franchiseValue: z.string().min(1, "Valor da franquia é obrigatório"),
+  claimNumber: z.string().min(1, "Número do sinistro é obrigatório"),
+  rentalCarDays: z.string().min(1, "Dias de carro reserva é obrigatório"),
+  driverCoverage: z.enum(['sim', 'nao'], { message: "Selecione uma opção" }),
   type: z.enum(['Automóvel', 'Residencial', 'Vida', 'Saúde', 'Empresarial']),
   date: z.string().min(1, "Data é obrigatória"),
   time: z.string().min(1, "Hora é obrigatória"),
@@ -36,6 +40,15 @@ const claimSchema = z.object({
   vehicleModel: z.string().optional(),
   vehicleYear: z.string().optional(),
   vehicleColor: z.string().optional(),
+  vehicleChassis: z.string().optional(),
+  vehicleRenavam: z.string().optional(),
+  driverName: z.string().optional(),
+  driverCpf: z.string().optional(),
+  driverBirthDate: z.string().optional(),
+  driverCnhNumber: z.string().optional(),
+  driverCnhCategory: z.string().optional(),
+  driverCnhExpiry: z.string().optional(),
+  driverRelationship: z.string().optional(),
   workshopName: z.string().optional(),
   workshopCnpj: z.string().optional(),
   workshopPhone: z.string().optional(),
@@ -70,6 +83,8 @@ type ClaimFormData = z.infer<typeof claimSchema>;
 
 export default function NewClaimForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const parentClaimId = searchParams.get('parentClaimId') || undefined;
   const { saveClaim } = useClaims();
   const [step, setStep] = useState(1);
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -80,10 +95,19 @@ export default function NewClaimForm() {
     formState: { errors },
     watch,
     setValue,
+    trigger,
+    getValues,
   } = useForm<ClaimFormData>({
     resolver: zodResolver(claimSchema),
+    mode: 'onChange',
     defaultValues: {
       type: 'Automóvel',
+      insuredName: searchParams.get('insuredName') || '',
+      cpfCnpj: searchParams.get('cpfCnpj') || '',
+      email: searchParams.get('email') || '',
+      phone: searchParams.get('phone') || '',
+      insuranceCompany: searchParams.get('insuranceCompany') || '',
+      policyNumber: searchParams.get('policyNumber') || '',
     }
   });
 
@@ -91,18 +115,33 @@ export default function NewClaimForm() {
   const claimType = watch("type") || "";
 
   const onSubmit = async (data: ClaimFormData) => {
+    console.log("Formulário válido, dados:", data);
+    toast.success("Dados validados, salvando...");
     try {
       const newClaim: Claim = {
         ...data,
         id: '',
         status: 'Aberto',
         insuranceCompany: data.insuranceCompany,
+        franchiseValue: data.franchiseValue,
+        claimNumber: data.claimNumber,
+        rentalCarDays: data.rentalCarDays,
+        driverCoverage: data.driverCoverage,
+        driverName: data.driverName || '',
+        driverCpf: data.driverCpf || '',
+        driverBirthDate: data.driverBirthDate || '',
+        driverCnhNumber: data.driverCnhNumber || '',
+        driverCnhCategory: data.driverCnhCategory || '',
+        driverCnhExpiry: data.driverCnhExpiry || '',
+        driverRelationship: data.driverRelationship || '',
         vehicle: data.type === 'Automóvel' ? {
           plate: data.vehiclePlate || '',
           brand: data.vehicleBrand || '',
           model: data.vehicleModel || '',
           year: data.vehicleYear || '',
           color: data.vehicleColor || '',
+          chassis: data.vehicleChassis || '',
+          renavam: data.vehicleRenavam || '',
         } : undefined,
         workshop: {
           name: data.workshopName || '',
@@ -112,6 +151,8 @@ export default function NewClaimForm() {
         },
         attachments: [],
         timeline: [],
+        rcfs: [],
+        parentClaimId: parentClaimId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -208,7 +249,16 @@ export default function NewClaimForm() {
         </div>
       </motion.div>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        const valid = await trigger();
+        if (!valid) {
+          toast.error("Preencha todos os campos obrigatórios");
+          return;
+        }
+        const data = getValues();
+        await onSubmit(data);
+      }}>
         {step === 1 && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
             <Card className="overflow-hidden">
@@ -258,10 +308,42 @@ export default function NewClaimForm() {
                     <Input id="email" type="email" {...register("email")} placeholder="joao@email.com" className="h-11" />
                     {errors.email && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.email.message}</p>}
                   </div>
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
                     <Label htmlFor="phone" className="text-sm font-medium">Telefone</Label>
-                    <Input id="phone" {...register("phone")} placeholder="(11) 99999-9999" className="h-11 max-w-md" onChange={(e) => { setValue("phone", maskPhone(e.target.value)); }} />
+                    <Input id="phone" {...register("phone")} placeholder="(11) 99999-9999" className="h-11" onChange={(e) => { setValue("phone", maskPhone(e.target.value)); }} />
                     {errors.phone && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.phone.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="franchiseValue" className="text-sm font-medium">Valor da Franquia</Label>
+                    <Input id="franchiseValue" {...register("franchiseValue")} placeholder="Ex: R$ 1.500,00" className="h-11" />
+                    {errors.franchiseValue && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.franchiseValue.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="claimNumber" className="text-sm font-medium">Número do Sinistro</Label>
+                    <Input id="claimNumber" {...register("claimNumber")} placeholder="Ex: SIN-2026-001" className="h-11" />
+                    {errors.claimNumber && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.claimNumber.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rentalCarDays" className="text-sm font-medium">Dias de Carro Reserva</Label>
+                    <select id="rentalCarDays" {...register("rentalCarDays")} className="flex h-11 w-full rounded-lg border border-input bg-white/70 text-gray-900 px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary">
+                      <option value="">Selecione os dias</option>
+                      <option value="7 dias">7 dias</option>
+                      <option value="10 dias">10 dias</option>
+                      <option value="15 dias">15 dias</option>
+                      <option value="20 dias">20 dias</option>
+                      <option value="30 dias">30 dias</option>
+                      <option value="Indeterminado">Indeterminado</option>
+                    </select>
+                    {errors.rentalCarDays && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.rentalCarDays.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="driverCoverage" className="text-sm font-medium">Cobertura para condutor entre 18 e 25 anos?</Label>
+                    <select id="driverCoverage" {...register("driverCoverage")} className="flex h-11 w-full rounded-lg border border-input bg-white/70 text-gray-900 px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary">
+                      <option value="">Selecione</option>
+                      <option value="sim">Sim</option>
+                      <option value="nao">Não</option>
+                    </select>
+                    {errors.driverCoverage && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.driverCoverage.message}</p>}
                   </div>
                 </div>
                 <div className="pt-4 flex justify-end">
@@ -320,6 +402,64 @@ export default function NewClaimForm() {
                     <div className="md:col-span-2 pt-6 border-t border-border/50">
                       <div className="flex items-center gap-2 mb-5">
                         <div className="bg-primary/10 p-2 rounded-lg">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="text-sm font-semibold">Dados do Condutor</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="md:col-span-2 space-y-2">
+                          <Label htmlFor="driverName" className="text-sm font-medium">Condutor Principal</Label>
+                          <Input id="driverName" {...register("driverName")} placeholder="Nome completo do condutor" className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverCpf" className="text-sm font-medium">CPF do Condutor</Label>
+                          <Input id="driverCpf" {...register("driverCpf")} placeholder="000.000.000-00" className="h-11" onChange={(e) => { setValue("driverCpf", maskCPF(e.target.value)); }} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverBirthDate" className="text-sm font-medium">Data de Nascimento</Label>
+                          <Input id="driverBirthDate" type="date" {...register("driverBirthDate")} className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverCnhNumber" className="text-sm font-medium">Número da CNH</Label>
+                          <Input id="driverCnhNumber" {...register("driverCnhNumber")} placeholder="00000000000" className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverCnhCategory" className="text-sm font-medium">Categoria da CNH</Label>
+                          <select id="driverCnhCategory" {...register("driverCnhCategory")} className="flex h-11 w-full rounded-lg border border-input bg-white/70 text-gray-900 px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary">
+                            <option value="">Selecione</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="E">E</option>
+                            <option value="AB">AB</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverCnhExpiry" className="text-sm font-medium">Validade da CNH</Label>
+                          <Input id="driverCnhExpiry" type="date" {...register("driverCnhExpiry")} className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="driverRelationship" className="text-sm font-medium">Parentesco com o Segurado</Label>
+                          <select id="driverRelationship" {...register("driverRelationship")} className="flex h-11 w-full rounded-lg border border-input bg-white/70 text-gray-900 px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary">
+                            <option value="">Selecione</option>
+                            <option value="Nenhum">Nenhum</option>
+                            <option value="Proprietário">Proprietário</option>
+                            <option value="Cônjuge">Cônjuge</option>
+                            <option value="Filho(a)">Filho(a)</option>
+                            <option value="Pai/Mãe">Pai/Mãe</option>
+                            <option value="Irmão/Irmã">Irmão/Irmã</option>
+                            <option value="Outro">Outro</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {claimType === 'Automóvel' && (
+                    <div className="md:col-span-2 pt-6 border-t border-border/50">
+                      <div className="flex items-center gap-2 mb-5">
+                        <div className="bg-primary/10 p-2 rounded-lg">
                           <Car className="h-4 w-4 text-primary" />
                         </div>
                         <h3 className="text-sm font-semibold">Dados do Veículo</h3>
@@ -350,6 +490,14 @@ export default function NewClaimForm() {
                             <Input id="vehicleColor" {...register("vehicleColor")} placeholder="Prata" className="h-11" />
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="vehicleChassis" className="text-sm font-medium">Número do Chassi</Label>
+                          <Input id="vehicleChassis" {...register("vehicleChassis")} placeholder="Número do chassi" className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="vehicleRenavam" className="text-sm font-medium">RENAVAN</Label>
+                          <Input id="vehicleRenavam" {...register("vehicleRenavam")} placeholder="Número RENAVAN" className="h-11" />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -365,6 +513,7 @@ export default function NewClaimForm() {
                     {errors.description && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.description.message}</p>}
                   </div>
                 </div>
+
                 <div className="pt-4 flex justify-between">
                   <Button type="button" variant="outline" onClick={prevStep} className="gap-2 h-11">
                     <ArrowLeft className="h-4 w-4" /> Anterior

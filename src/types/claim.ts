@@ -35,6 +35,8 @@ export interface Vehicle {
   model: string;
   year: string;
   color: string;
+  chassis: string;
+  renavam: string;
 }
 
 export interface Workshop {
@@ -42,6 +44,26 @@ export interface Workshop {
   cnpj: string;
   phone: string;
   address: string;
+}
+
+export interface RCF {
+  id: string;
+  claimId: string;
+  name: string;
+  cpf: string;
+  phone: string;
+  email: string;
+  vehiclePlate: string;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehicleYear: string;
+  vehicleColor: string;
+  vehicleChassis: string;
+  vehicleRenavam: string;
+  insuranceCompany: string;
+  sinistroNumber: string;
+  workshopName: string;
+  createdAt: string;
 }
 
 export interface Claim {
@@ -52,6 +74,17 @@ export interface Claim {
   insuranceCompany: string;
   email: string;
   phone: string;
+  franchiseValue: string;
+  claimNumber: string;
+  rentalCarDays: string;
+  driverCoverage: 'sim' | 'nao';
+  driverName: string;
+  driverCpf: string;
+  driverBirthDate: string;
+  driverCnhNumber: string;
+  driverCnhCategory: string;
+  driverCnhExpiry: string;
+  driverRelationship: string;
   type: ClaimType;
   date: string;
   time: string;
@@ -60,6 +93,8 @@ export interface Claim {
   status: ClaimStatus;
   attachments: Attachment[];
   timeline: TimelineEvent[];
+  rcfs: RCF[];
+  parentClaimId?: string;
   createdAt: string;
   updatedAt: string;
   vehicle?: Vehicle;

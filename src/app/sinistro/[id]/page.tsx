@@ -1,8 +1,9 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useClaims } from "@/hooks/use-claims";
+import { RCF } from "@/types/claim";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -25,21 +26,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  ArrowLeft, 
-  Calendar, 
-  MapPin, 
-  User, 
-  Phone, 
-  Mail, 
-  FileText, 
-  Download, 
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  FileText,
+  Download,
   Shield,
   Info,
   Car,
   Wrench,
   MessageSquarePlus,
-  Clock
+  Clock,
+  Users,
+  Plus,
+  X,
+  ChevronRight
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -59,10 +64,13 @@ export default function ClaimDetail() {
 
 function ClaimDetailContent() {
   const { id } = useParams();
-  const { getClaim, updateStatus, addTimelineEvent } = useClaims();
+  const router = useRouter();
+  const { getClaim, updateStatus, addTimelineEvent, deleteRCF, claims } = useClaims();
   const claim = getClaim(id as string);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newMessage, setNewMessage] = useState("");
+  const [rcfDetailOpen, setRcfDetailOpen] = useState(false);
+  const [selectedRCF, setSelectedRCF] = useState<RCF | null>(null);
 
   if (!claim) {
     return (
@@ -254,6 +262,192 @@ function ClaimDetailContent() {
               </CardContent>
             </Card>
           </motion.div>
+
+          {claim.type === 'Automóvel' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              <Card>
+                <CardHeader className="bg-gradient-to-r from-muted/50 to-transparent">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-orange-500" />
+                        {claim.parentClaimId ? 'Segurado Vinculado' : 'Terceiros Envolvidos (RCF)'}
+                      </CardTitle>
+                      <CardDescription>
+                        {claim.parentClaimId
+                          ? 'Dados do segurado original deste sinistro.'
+                          : `${claim.rcfs.length} terceiro(s) cadastrado(s).`
+                        }
+                      </CardDescription>
+                    </div>
+                    {!claim.parentClaimId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-8"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            parentClaimId: claim.id,
+                            insuredName: claim.insuredName,
+                            cpfCnpj: claim.cpfCnpj,
+                            email: claim.email,
+                            phone: claim.phone,
+                            insuranceCompany: claim.insuranceCompany,
+                            policyNumber: claim.policyNumber,
+                          });
+                          router.push(`/novo?${params.toString()}`);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" /> Adicionar
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    // Se é um sinistro filho (RCF), mostrar o segurado pai
+                    if (claim.parentClaimId) {
+                      const parentClaim = getClaim(claim.parentClaimId);
+                      if (parentClaim) {
+                        return (
+                          <div
+                            onClick={() => router.push(`/sinistro/${parentClaim.id}`)}
+                            className="p-4 rounded-xl border bg-card hover:bg-muted/30 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">{parentClaim.vehicle?.plate || parentClaim.insuredName}</p>
+                                <p className="text-xs text-muted-foreground">{parentClaim.insuredName} • {parentClaim.insuranceCompany} • {parentClaim.status}</p>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <p className="text-xs text-muted-foreground text-center py-3 bg-muted/30 rounded-xl">
+                          Sinistro pai não encontrado.
+                        </p>
+                      );
+                    }
+
+                    // Se é um sinistro pai, mostrar filhos e RCFs
+                    const childClaims = claims.filter(c => c.parentClaimId === claim.id);
+                    const hasRCFs = claim.rcfs.length > 0 || childClaims.length > 0;
+                    return hasRCFs ? (
+                    <div className="space-y-3">
+                      {claim.rcfs.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {claim.rcfs.map((rcf) => (
+                            <div
+                              key={rcf.id}
+                              onClick={() => { setSelectedRCF(rcf); setRcfDetailOpen(true); }}
+                              className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-all cursor-pointer group"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">{rcf.vehiclePlate} — {rcf.vehicleModel || 'Sem modelo'}</p>
+                            <p className="text-xs text-muted-foreground">{rcf.name} • {rcf.insuranceCompany || 'Sem seguradora'}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteRCF(rcf.id); }} className="shrink-0 ml-2 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-opacity">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                       ))}
+                        </div>
+                      )}
+                      {childClaims.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Sinistros Vinculados</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {childClaims.map((child) => (
+                              <div
+                                key={child.id}
+                                onClick={() => router.push(`/sinistro/${child.id}`)}
+                                className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-all cursor-pointer group"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold truncate">{child.vehicle?.plate || child.insuredName}</p>
+                                  <p className="text-xs text-muted-foreground">{child.insuredName} • {child.status}</p>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    ) : (
+                    <div className="text-center py-8 border-2 border-dashed rounded-xl bg-muted/5">
+                      <Users className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">Nenhum terceiro envolvido cadastrado.</p>
+                    </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Dialog open={rcfDetailOpen} onOpenChange={setRcfDetailOpen}>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Detalhes do Terceiro</DialogTitle>
+                    <DialogDescription>Dados completos do terceiro envolvido.</DialogDescription>
+                  </DialogHeader>
+                  {selectedRCF && (
+                    <div className="space-y-4 py-2">
+                      <div className="bg-muted/30 rounded-xl p-3 flex items-center gap-3">
+                        <Car className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Sinistro vinculado</p>
+                          <p className="text-sm font-semibold">{claim.vehicle?.plate || 'N/A'} — {claim.insuredName}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-border/50 pt-4">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Dados Pessoais</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Nome</p><p className="text-sm font-semibold">{selectedRCF.name}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">CPF</p><p className="text-sm font-semibold">{selectedRCF.cpf || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Telefone</p><p className="text-sm font-semibold">{selectedRCF.phone || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">E-mail</p><p className="text-sm font-semibold">{selectedRCF.email || '—'}</p></div>
+                        </div>
+                      </div>
+                      <div className="border-t border-border/50 pt-4">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Veículo</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Placa</p><p className="text-sm font-mono font-bold text-primary">{selectedRCF.vehiclePlate}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Marca</p><p className="text-sm font-semibold">{selectedRCF.vehicleBrand || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Modelo</p><p className="text-sm font-semibold">{selectedRCF.vehicleModel || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Ano</p><p className="text-sm font-semibold">{selectedRCF.vehicleYear || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Cor</p><p className="text-sm font-semibold">{selectedRCF.vehicleColor || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Chassi</p><p className="text-sm font-semibold">{selectedRCF.vehicleChassis || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">RENAVAN</p><p className="text-sm font-semibold">{selectedRCF.vehicleRenavam || '—'}</p></div>
+                        </div>
+                      </div>
+                      <div className="border-t border-border/50 pt-4">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Sinistro</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Seguradora</p><p className="text-sm font-semibold">{selectedRCF.insuranceCompany || '—'}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Sinistro</p><p className="text-sm font-semibold">{selectedRCF.sinistroNumber || '—'}</p></div>
+                        </div>
+                      </div>
+                      {selectedRCF.workshopName && (
+                        <div className="border-t border-border/50 pt-4">
+                          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Oficina do Terceiro</h4>
+                          <p className="text-sm font-semibold">{selectedRCF.workshopName}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setRcfDetailOpen(false)}>Fechar</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
